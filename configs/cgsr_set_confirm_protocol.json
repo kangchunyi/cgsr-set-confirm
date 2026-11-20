@@ -1,0 +1,144 @@
+{
+  "name": "cgsr-set-confirm",
+  "version": "1.0.0",
+  "date": "2026-11-18",
+  "status": "frozen before any confirmation graph, predicted label, or query score was observed",
+  "relation_to_previous": "This is a new, separately frozen screening study. It does not reopen cgsr-set, cgsr-set2, or the cloud protocol: all three stopped at their two-scene gates and none is rescored here. It runs the class-conditioned gate that the cgsr-set manuscript names as its next experiment, on the ten confirmation scenes of the frozen pool, with the three sources that were actually evaluated and with the fourth named in advance. No query accuracy is computed, and no solver constant, lexicon entry, or relation threshold is changed.",
+  "claim_under_test": "A predicted graph supports an ordinal Q8-versus-Q9 comparison only if its same-class candidate sets match the annotated instances. Geometry-only alignment is insufficient; a node and an instance must also carry the same canonical class.",
+  "scenes": {
+    "development": [
+      "scene0006_00",
+      "scene0014_00"
+    ],
+    "confirmation": [
+      "scene0015_00",
+      "scene0017_00",
+      "scene0019_00",
+      "scene0028_00",
+      "scene0034_00",
+      "scene0040_00",
+      "scene0042_00",
+      "scene0050_00",
+      "scene0072_00",
+      "scene0074_00"
+    ],
+    "selection": "the frozen pool of sixteen scenes, in lexicographic order: the first two are development, the next ten are confirmation; no scene is added, removed, or reordered after this file is hashed"
+  },
+  "matching": {
+    "construct": "centroid/AABB matching; this is a set-level diagnostic, not a mask-overlap or mask-identity test",
+    "label_canonicalization": "lowercase, replace underscores with spaces, collapse whitespace; an empty label becomes <missing> and never matches a labelled instance; no semantic aliases",
+    "tolerance_m": 0.25,
+    "eligibility": "the predicted centroid lies inside the annotated axis-aligned box padded by the tolerance in every coordinate",
+    "assignment": "within each canonical label, maximize the number of eligible pairs, then minimize the total centroid distance, then break exact ties (total-distance differences of at most 1e-14 m) lexicographically by the sorted predicted node ids and the integer annotated instance ids; an unmatched prediction sorts after every available instance",
+    "implementation": "scripts/class_aware_gate_diagnostic.py::class_conditioned_alignment",
+    "recorded": "the ordered node ids, ordered instance ids, and final matched pairs are written for every scene"
+  },
+  "gate": {
+    "one_to_one_precision_min": 0.75,
+    "one_to_one_recall_min": 0.75,
+    "class_count_ratio": [
+      0.75,
+      1.25
+    ],
+    "class_count_applies_to": "every class with at least two annotated instances on that scene, using the canonical labels above",
+    "median_wall_proposals_max": 2.0,
+    "wall_rule": "for every annotated wall, count every predicted node whose canonical label is wall and whose centroid lies in the wall's padded box; do not apply one-to-one assignment; unmatched walls count zero; the criterion is the median of these counts over the annotated walls",
+    "per_scene": "all four criteria must hold on each scene: precision, recall, every checked class ratio, and the median wall proposals",
+    "source_verdict": "a source passes only if every one of its ten confirmation scenes passes every criterion; pooled metrics are descriptive and cannot rescue a failed scene",
+    "on_failure": "no query accuracy is computed for that source; the source is reported as failing the class-conditioned gate"
+  },
+  "roles": {
+    "class_conditioned_candidates": [
+      "cgsr-set",
+      "cgsr-set2"
+    ],
+    "negative_control": [
+      "cloud"
+    ],
+    "not_evaluated": [
+      "openmask3d"
+    ]
+  },
+  "sources": {
+    "cgsr-set": {
+      "status": "available",
+      "graph_dir": "data/scannet/graphs",
+      "source": "HOV-SG on posed ScanNet RGB-D frames, with the declared ScanNet200 label branch and the declared object grouping",
+      "frozen_constants": {
+        "merge_gap_m": 0.3,
+        "merge_cos": 0.92,
+        "alpha": 0.06
+      },
+      "build": "scripts/make_hovsg_config.py, application/create_graph.py, scripts/label_hovsg_objects.py; constants read from configs/cgsr_set_protocol.json",
+      "note": "the cgsr-set graph on the two development scenes is not rebuilt; the confirmation graphs are built once, before the gate is read"
+    },
+    "cloud": {
+      "status": "available",
+      "graph_dir": "data/scannet/graphs_cloud",
+      "source": "the companion protocol's dominant-plane proposal ported to the reconstructed point cloud",
+      "frozen_constants": {
+        "voxel_m": 0.02,
+        "normal_deg": 20,
+        "offset_m": 0.05,
+        "min_area_m2": 2.0,
+        "gap_m": 0.05,
+        "min_volume_m3": 0.005,
+        "max_volume_m3": 8.0
+      },
+      "build": "scripts/reconstruct_cloud.py, then scripts/build_cloud_graph.py with the constants above",
+      "label_status": "no predicted labels: build_cloud_graph.py emits empty node labels by construction, so a class-conditioned match cannot succeed; the source enters as a negative control and its failure is not evidence about its geometry alone",
+      "role": "negative control, not a class-conditioned candidate"
+    },
+    "cgsr-set2": {
+      "status": "available",
+      "graph_dir": "data/scannet/graphs_new2",
+      "source": "SAM 2.1 automatic masks on every fifth frame, named by CLIPSeg over the declared ScanNet200 list",
+      "frozen_constants": {
+        "stride": 5,
+        "init_overlap": 0.15,
+        "iou_thresh": 0.01,
+        "voxel_m": 0.02,
+        "node_min_points": 100,
+        "points_per_side": 32,
+        "prompt_batch": 25
+      },
+      "build": "scripts/build_sam2_clipseg_graph.py with the constants above; proposals cached at data/scannet/proposals/<scene>.pkl"
+    },
+    "openmask3d": {
+      "status": "not_available",
+      "reason": "the released checkpoint is behind an interactive Google Drive warning page; no OpenMask3D code or weights were installed in the execution environment, and no confirmed download could be made before this freeze. It is named here in advance and is reported as not evaluated, not as failing.",
+      "graph_dir": null
+    }
+  },
+  "sensitivity": {
+    "role": "descriptive only; it cannot change a source verdict",
+    "rule": "exclude the confirmation scenes whose annotation-to-frame registration overlap is below 0.10",
+    "scenes": [
+      "scene0019_00",
+      "scene0042_00",
+      "scene0074_00"
+    ],
+    "note": "three of the ten confirmation scenes are below 0.10; the fourth pool scene below 0.10, scene0079_00, is outside the confirmation list and is not used here"
+  },
+  "query_scoring": {
+    "computed": false,
+    "rule": "even a passing source would not authorise query scoring: the local ordinal query files still require lineage, answer-semantics, and option-to-target validation"
+  },
+  "diagnostics": {
+    "cloud_gt_labels": {
+      "role": "descriptive geometry ceiling; not a source verdict",
+      "graph_dir": "data/scannet/graphs_cloud_oracle",
+      "labels": "the annotation's classes, applied by scripts/relabel_oracle.py",
+      "question": "does the cloud geometry recover the annotated instances when the labels are not the obstacle?"
+    }
+  },
+  "artifacts": {
+    "runner": "scripts/run_class_conditioned_gate.py",
+    "matcher": "scripts/class_aware_gate_diagnostic.py",
+    "hash_record": "data/predicted/CONFIRM_PROTOCOL.txt",
+    "reports": [
+      "results/set/class_conditioned_gate_confirmation.json",
+      "results/set/class_conditioned_gate_confirmation.md"
+    ]
+  }
+}
